@@ -17,12 +17,48 @@ use std::{
     fmt::{
         Debug
     },
+    sync::LazyLock,
+    collections::HashSet,
 };
 
 pub type Cmd = Command;
 pub type RxiError = Box<dyn std::error::Error>;
 
 static mut FULL_MUTE: bool = false;
+static mut CONFIG: LazyLock<RedoxConfig> = LazyLock::new(|| {RedoxConfig::new()});
+
+struct RedoxConfig {
+    flags: HashSet<String>,
+    full_mute: bool,
+}
+
+impl RedoxConfig {
+    fn new() -> Self {
+        Self {
+            flags: HashSet::new(),
+            full_mute: false,
+        }
+    }
+    fn set_full_mute(to: bool) {
+        unsafe { CONFIG.full_mute = to; }
+    }
+    fn is_full_mute() -> bool {
+        unsafe { return CONFIG.full_mute; }
+    }
+
+    fn add_flag<T>(flag: &T) 
+    where T: AsRef<str> + ?Sized {
+        unsafe {(*CONFIG).flags.insert(flag.as_ref().to_owned())};
+    }
+    fn set_flags(to: HashSet<String>) {
+        unsafe { return CONFIG.flags = to; }
+    }
+    fn flag_is_active<T>(flag: &T) -> bool 
+    where T: AsRef<str> + ?Sized{
+        let flag = flag.as_ref().to_owned();
+        return unsafe {(*CONFIG).flags.contains(&flag)};
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Redoxri {
@@ -51,7 +87,7 @@ impl Redoxri {
         }
 
         if args.len() > 1 {
-            if Self::parse_args_to_settings(&args, &mut settings) {force_compile = true}
+            if Self::parse_args(&args, &mut settings) {}
         }
 
         for setting in &settings {
@@ -77,7 +113,7 @@ impl Redoxri {
         me
     }
 
-    fn parse_args_to_settings(args: &Vec<String>, settings: &mut Vec<String>) -> bool{
+    fn parse_args(args: &Vec<String>, _settings: &mut Vec<String>) -> bool{
         let start_index = 1;
         let setting = match args[start_index].as_str() {
             "rebuild" => {"rebuild_all"},
@@ -88,7 +124,7 @@ impl Redoxri {
             _ => {""},
         };
         if setting != "" { 
-            settings.push("--cfg".to_owned()); settings.push(setting.to_owned());
+            RedoxConfig::add_flag(setting);
             return true;
         }
         false
@@ -102,13 +138,6 @@ impl Redoxri {
 
         #[cfg(isolate)]
         {
-        }
-
-        #[cfg(any(clean, run))]
-        {
-            self.mcule.mute();
-            unsafe { FULL_MUTE = true; }
-            self.mcule.report_and_just_compile();
         }
 
         #[cfg(not(bootstrapped))]
@@ -266,26 +295,7 @@ In Mcule: {}; with outpath: {}", name.as_ref(), outpath);
     pub fn compile(&mut self) -> Self {
         let mut need_to_compile = false;
 
-        #[cfg(not(clean))]
-        let _last_change = match self.get_comp_date() {
-            Ok(time_since_last_change) => {
-                for i in &self.inputs {
-                    i.clone().compile();
-                    let comp_date_i = i.get_comp_date().unwrap();
-                    if comp_date_i < time_since_last_change {
-                        need_to_compile = true;
-                    }
-                }
-            },
-
-            Err(_) => {
-                need_to_compile = true;
-            },
-        };
-
-
-        #[cfg(clean)]
-        {
+        if RedoxConfig::flag_is_active("clean") {
             if self.recipe.len() == 0 { return self.to_owned(); }
             let file_to_delete = Path::new(&self.outpath);
             if file_to_delete.is_file() {
@@ -295,9 +305,26 @@ In Mcule: {}; with outpath: {}", name.as_ref(), outpath);
             return self.to_owned();
         }
 
+        if !RedoxConfig::flag_is_active("clean") {
+            let _last_change = match self.get_comp_date() {
+                Ok(time_since_last_change) => {
+                    for i in &self.inputs {
+                        i.clone().compile();
+                        let comp_date_i = i.get_comp_date().unwrap();
+                        if comp_date_i < time_since_last_change {
+                            need_to_compile = true;
+                        }
+                    }
+                },
 
-        #[cfg(not(clean))]
-        if need_to_compile {
+                Err(_) => {
+                    need_to_compile = true;
+                },
+            };
+        }
+
+
+        if need_to_compile && !RedoxConfig::flag_is_active("clean") {
             #[cfg(debug)]
             println!("Compiling {}", &self.outpath);
             self.status_chain = self.just_compile();
@@ -411,7 +438,7 @@ In Mcule: {}; with outpath: {}", name.as_ref(), outpath);
     }
 
     pub fn run(&self) -> Self {
-        if cfg!(run) {
+        if RedoxConfig::flag_is_active("run") {
             let mut cmd = Command::new(self.outpath.clone());
             if self.mute {
                 _ = cmd.output();
