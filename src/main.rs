@@ -25,13 +25,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut name = "out/output.ppm";
     let mut output = fs::File::create(name)?;
 
-    let scale = 20;
+    let scale = 6;
     let width: usize = 16*40*scale;
     let height: usize = 16*40*scale;
     let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
-    let zoom = 0.15;
-    let x_shift = 0.2;
-    let y_shift = 0.27;
+    let zoom = 11.6 as f64;
+    let x_shift = -0.2 as f64;
+    let y_shift = 8.0 as f64;
 
 
     _ = output.write(&(b"P6\n")[..]);
@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             colour = n as f64;
 
             if colour < 30.0 {
-                colour += 80.0;
+                colour += 120.0;
             }
 
             let r = (colour * r_mult).round() as Byte; //
