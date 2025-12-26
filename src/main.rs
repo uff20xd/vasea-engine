@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut name = "out/output.ppm";
     let mut output = fs::File::create(name)?;
 
-    let scale = 1;
+    let scale = 4;
     let width: usize = 16*40*scale;
     let height: usize = 16*40*scale;
     let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
