@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut name = "out/output.ppm";
     let mut output = fs::File::create(name)?;
 
-    let scale = 1;
+    let scale = 20;
     let width: usize = 16*40*scale;
     let height: usize = 16*40*scale;
     let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
@@ -71,7 +71,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             //colour = (255 * (n/max_iteration)) as f64 / max_mult;
-            colour = n as f64 * 3.0;
+            colour = n as f64;
+
+            if colour < 30.0 {
+                colour += 80.0;
+            }
 
             let r = (colour * r_mult).round() as Byte; //
             let g = (colour * g_mult).round() as Byte; //
