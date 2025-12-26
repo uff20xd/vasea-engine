@@ -49,9 +49,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if (current_pixel % (scale * scale * 5000)) == 0 { println!( "Pixel {} out of {}", current_pixel, width * height)}
             let x0 = zoom_mult * (((j as f64/width as f64)/ 2.0) - (j as f64/width as f64)) + actual_shift_x;
             let y0 = zoom_mult * (((i as f64/height as f64)/ 2.0) - (i as f64/height as f64)) + actual_shift_y;
-            let r_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs() + 0.2 - (0.1_f64 * (x0 + y0 - 0.0)).abs();
+            let r_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs() + 0.06;
             let g_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs();
-            let b_mult: f64 = 0.1 * ((i + j + 0) as f64/(width + height) as f64); 
+            let b_mult: f64 = 0.0; 
             let max_mult = r_mult.max(g_mult.max(b_mult));
 
             let mut x = 0.0;
