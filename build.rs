@@ -22,6 +22,9 @@ fn main() -> Result<(), RxiError> {
     let magick = Cmd::new("magick").arg("out/output.ppm").arg("out/output.png").status()?;
 
     #[cfg(run)]
+    let magick = Cmd::new("magick").arg("out/output.png").arg("out/output.jpg").status()?;
+
+    #[cfg(run)]
     let feh = Cmd::new("gwenview").arg("out/output.png").status()?;
 
 
