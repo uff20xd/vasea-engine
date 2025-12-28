@@ -1,31 +1,44 @@
 mod redoxri;
 use redoxri::*;
 
+const COMMON_FLAGS: &[&str] = &["-Copt-level=3", "--edition=2024"];
+
 fn main() -> Result<(), RxiError> {
-    let _redoxri = Redoxri::new(&[""]);
+    let redoxri = Redoxri::new(&[""]);
 
     let out = Mcule::new("output", "out/")
         .add_step(&["mkdir", "out"])
         .compile();
 
-    let test = Mcule::new("main", "out/main")
+    let mut lib = Mcule::new("vasea", "out/libvasae.rlib")
         .with(&[
-            "src/main.rs".into(),
-        ])
+            "src/lib.rs".into(),
+        ]);
+    lib = lib.clone()
         .add_step(&[
-            "rustc", "src/main.rs", "-o", "$out", "-Copt-level=3"
+            "rustc", &lib.inputs[0].outpath, "-o", "$out", "--crate-type=lib"
         ])
+        .with_flags(COMMON_FLAGS)
+        .compile();
+
+
+    let mut test = Mcule::new("tests", "out/test")
+        .with(&[
+            "tests/tests.rs".into(), lib.clone(),
+        ]);
+    _ = test.clone()
+        .add_step(&[
+            "rustc", &test.inputs[0].outpath, "-o", "$out", "--extern", &(lib.name.clone() + "=" + &lib.outpath),
+        ])
+        .with_flags(COMMON_FLAGS)
         .compile()
         .run();
 
-    #[cfg(run)]
-    let magick = Cmd::new("magick").arg("out/output.ppm").arg("out/output.png").status()?;
-
-    #[cfg(run)]
-    let magick = Cmd::new("magick").arg("out/output.png").arg("out/output.jpg").status()?;
-
-    #[cfg(run)]
-    let feh = Cmd::new("gwenview").arg("out/output.png").status()?;
+    if redoxri.flag_is_active("run") {
+        let _magick = Cmd::new("magick").arg("out/output.ppm").arg("out/output.png").status()?;
+        let _magick = Cmd::new("magick").arg("out/output.png").arg("out/output.jpg").status()?;
+        let _feh = Cmd::new("gwenview").arg("out/output.png").status()?;
+    }
 
 
     Ok(())

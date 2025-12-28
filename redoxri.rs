@@ -146,18 +146,17 @@ impl Redoxri {
             //println!("Not Bootstrapped");
         }
 
-        if always_compile {
+        if always_compile || RedoxConfig::flag_is_active("self_build") {
             self.mcule.mute();
             unsafe { FULL_MUTE = true; }
             self.mcule.report_and_just_compile();
             unsafe { FULL_MUTE = false; }
             self.mcule.unmute();
-            self.mcule.required_run();
+            self.mcule.required_run_with(&self.args[1..]);
             exit(0)
         }
 
-        #[cfg(not(clean))]
-        if !self.mcule.is_up_to_date() && !always_compile {
+        if !self.mcule.is_up_to_date() && !always_compile && !RedoxConfig::flag_is_active("clean") {
             println!("Detected Change!");
             println!("Recompiling build script...");
             self.mcule.report_and_just_compile();
@@ -168,10 +167,14 @@ impl Redoxri {
             }
             println!("Recompilation Successful!");
             println!("Executing new build script...");
-            self.mcule.required_run();
+            self.mcule.required_run_with(&self.args[1..]);
             exit(0);
         }
         Ok(())
+    }
+    pub fn flag_is_active<T>(&self, flag: &T) -> bool 
+    where T: AsRef<str> + ?Sized {
+        return RedoxConfig::flag_is_active(flag);
     }
 }
 
@@ -179,7 +182,7 @@ impl Redoxri {
 pub struct Mcule {
     pub name: String,
     pub outpath: String,
-    inputs: Vec<Mcule>,
+    pub inputs: Vec<Mcule>,
     recipe: Vec<Vec<String>>,
     last_changed: (),
     success: bool,
@@ -422,6 +425,22 @@ In Mcule: {}; with outpath: {}", name.as_ref(), outpath);
         self
     }
 
+    pub fn with_flags<T>(mut self, step: &[&T]) -> Self 
+    where T: ?Sized + AsRef<str> + Debug {
+        let mut new_args: Vec<String> = Vec::new();
+        for arg in step {
+            if arg.as_ref() == "$out" {
+                new_args.push(self.outpath.clone());
+            }
+            else {new_args.push(arg.as_ref().to_string());}
+        }
+        let last_index = self.recipe.len() - 1;
+        self.recipe[last_index].append(&mut new_args);
+        self
+    }
+
+    fn parse_arg(_arg: &str) -> String { todo!() }
+
     pub fn copy_to(&self, to: &str) -> &Self {
         _ = fs::copy(self.outpath.clone(), to);
         self
@@ -440,6 +459,37 @@ In Mcule: {}; with outpath: {}", name.as_ref(), outpath);
     pub fn run(&self) -> Self {
         if RedoxConfig::flag_is_active("run") {
             let mut cmd = Command::new(self.outpath.clone());
+            if self.mute {
+                _ = cmd.output();
+            } else {
+                _ = cmd.status();
+            }
+        }
+        self.to_owned()
+    }
+
+    pub fn required_run_with<T>(&self, args: &[T]) -> Self 
+    where T: AsRef<str> {
+        let mut cmd = Command::new(self.outpath.clone());
+        for i in args {
+            cmd.arg(i.as_ref());
+
+        }
+        if self.mute {
+            _ = cmd.output();
+        } else {
+            _ = cmd.status();
+        }
+        self.to_owned()
+    }
+
+    pub fn run_with<T>(&self, args: &[T]) -> Self 
+    where T: AsRef<str> {
+        if RedoxConfig::flag_is_active("run") {
+            let mut cmd = Command::new(self.outpath.clone());
+            for i in args {
+                cmd.arg(i.as_ref());
+            }
             if self.mute {
                 _ = cmd.output();
             } else {
