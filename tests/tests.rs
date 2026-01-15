@@ -5,13 +5,18 @@ use std::{
     fs,
 };
 type Byte = u8;
+const SCALE: usize = 1;
+const XDIM: usize = SCALE * 100;
+const YDIM: usize = SCALE * 100;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let thread_pool = ThreadPool::new();
+    let mut thread_pool = ThreadPool::new();
+    let out = "./out/output.ppm";
     let zoom = 0.0;
     let x_shift = 0.0;
     let y_shift = 0.0;
-    let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, Image::new("output.ppm")); 
-    let image = shader.apply_shader();
+    let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, Image::<YDIM, XDIM>::new(out)); 
+    let image = shader.apply_shader(&mut thread_pool);
+    // dbg!(&image);
     image.write();
     Ok(())
 }

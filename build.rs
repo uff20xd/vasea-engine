@@ -36,8 +36,8 @@ fn main() -> Result<(), RxiError> {
 
     if redoxri.flag_is_active("run") {
         let _magick = Cmd::new("magick").arg("out/output.ppm").arg("out/output.png").status()?;
-        let _magick = Cmd::new("magick").arg("out/output.png").arg("out/output.jpg").status()?;
-        let _feh = Cmd::new("gwenview").arg("out/output.png").status()?;
+        // let _magick = Cmd::new("magick").arg("out/output.png").arg("out/output.jpg").status()?;
+        // let _feh = Cmd::new("gwenview").arg("out/output.png").status()?;
     }
 
 

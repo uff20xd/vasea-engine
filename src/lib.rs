@@ -16,7 +16,7 @@ macro_rules! generate_task {
     () => {}
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Pixel {
     r: Byte,
     g: Byte,
@@ -36,6 +36,7 @@ struct Task<F>
     y_shift: f64,
 }
 
+#[derive(Debug)]
 pub struct Image<const WIDTH: usize, const HEIGHT: usize> {
     image: Mutex<[[Pixel; WIDTH]; HEIGHT]>,
     path: PathBuf,
@@ -112,7 +113,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Image<WIDTH, HEIGHT> {
     }
     pub fn write(&self) -> Result<(), Box<dyn std::error::Error>> {
         let image = self.image.lock().unwrap();
-        let mut file = fs::File::open(&self.path)?;
+        let mut file = fs::File::create(&self.path)?;
 
         let size: Vec<u8> = format!("{} {}\n", WIDTH, HEIGHT).bytes().collect();
         _ = file.write(&(b"P6\n")[..]);
