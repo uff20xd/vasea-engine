@@ -1,3 +1,5 @@
+//extern vasae;
+use vasea::*;
 use std::{
     io::prelude::*,
     fs,
@@ -34,11 +36,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // x, y, zoom, width, height
-fn mandel_brot_shader(x: usize, y: usize, zoom: f64, width: usize, height: usize) -> Pixel {
-    current_pixel += 1;
-    if (current_pixel % (scale * scale * 5000)) == 0 { println!( "Pixel {} out of {}", current_pixel, width * height)}
-    let x0 = zoom_mult * (((j as f64/width as f64)/ 2.0) - (j as f64/width as f64)) + x_shift;
-    let y0 = zoom_mult * (((i as f64/height as f64)/ 2.0) - (i as f64/height as f64)) + y_shift;
+fn mandel_brot_shader(x: usize, y: usize, zoom: f64, width: usize, height: usize, x_shift: f64, y_shift: f64) -> Pixel {
+    // if (% (scale * scale * 5000)) == 0 { println!( "Pixel {} out of {}", current_pixel, width * height)}
+    let zoom_mult = 1.0 / zoom;
+    let x0 = zoom_mult * (((x as f64/width as f64)/ 2.0) - (x as f64/width as f64)) + x_shift;
+    let y0 = zoom_mult * (((y as f64/height as f64)/ 2.0) - (y as f64/height as f64)) + y_shift;
     let r_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs() + 0.2 - (0.1_f64 * (x0 + y0 - 0.0)).abs();
     let g_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs();
     let b_mult: f64 = 0.8; 

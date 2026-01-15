@@ -1,7 +1,7 @@
 mod redoxri;
 use redoxri::*;
 
-const COMMON_FLAGS: &[&str] = &["-Copt-level=3", "--edition=2024"];
+const COMMON_FLAGS: &[&str] = &["-Copt-level=3", "--edition=2024", "-Awarnings"];
 
 fn main() -> Result<(), RxiError> {
     let redoxri = Redoxri::new(&[""]);

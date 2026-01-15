@@ -12,6 +12,9 @@ type Byte = u8;
 // $width $height\n
 // $max_colour_component_value\n
 // (($r as byte)($g as byte)($b as byte))+
+macro_rules! generate_task {
+    () => {}
+}
 
 #[derive(Default, Clone, Copy)]
 struct Pixel {
@@ -21,22 +24,17 @@ struct Pixel {
     // pub inner: Mutex<InnerPixel>
 }
 
-#[derive(Default, Clone, Copy)]
-struct InnerPixel {
-    r: Byte,
-    g: Byte,
-    b: Byte,
-}
-
 
 struct Task<F> 
-    where F: Fn(usize, usize, usize, usize, usize) -> Pixel {
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
     function: F,
     x: usize,
     y: usize,
-    zoom: usize,
     width: usize,
     height: usize,
+    zoom: f64,
+    x_shift: f64,
+    y_shift: f64,
 }
 
 pub struct Image<const WIDTH: usize, const HEIGHT: usize> {
@@ -45,7 +43,7 @@ pub struct Image<const WIDTH: usize, const HEIGHT: usize> {
 }
 
 pub struct Shader<const WIDTH: usize, const HEIGHT: usize, F> 
-    where F: Fn(usize, usize, f64, usize, usize) -> Pixel {
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
     // x, y, zoom, width, height
     zoom: f64
     pixel_fn: F,
@@ -53,7 +51,7 @@ pub struct Shader<const WIDTH: usize, const HEIGHT: usize, F>
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize, F> Shader<WIDTH, HEIGHT, F> 
-    where F: Fn(usize, usize, f64, usize, usize) -> Pixel {
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
 
     pub fn new() -> Self { todo!( ) }
     pub fn get_task(x: usize, y: usize) -> Task<F> { 
@@ -81,23 +79,25 @@ impl<const WIDTH: usize, const HEIGHT: usize, F> Image<WIDTH, HEIGHT> {
         }
     }
     pub fn write(&self) -> Result<(), ()> {
-        let image = self.image.get();
+        let image = self.image.lock().unwrap();
+
         let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
         _ = self.file.write(&(b"P6\n")[..]);
         _ = self.file.write(&size[..]);
         _ = self.file.write(&(b"255\n")[..]);
 
-        for x in self.width {
-            for y in self.height {
+        for x in 0..WIDTH {
+            for y in 0..HEIGHT {
                 let pixel = image[x][y];
-                self.file.write(&[pixel.r, pixel.g, pixel.b])
+                self.file.write(&[pixel.r, pixel.g, pixel.b]);
             }
         }
+        Ok(())
     }
 }
 
 impl<F> Task<F>
-    where F: Fn(usize, usize, usize, usize, usize) -> Pixel {
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
     pub fn new(
         function: F,
         x: usize,
@@ -105,6 +105,8 @@ impl<F> Task<F>
         zoom: usize,
         width: usize,
         height: usize,
+        x_shift: usize,
+        y_shift: usize,
     ) -> Task {
         Self {
             function,
@@ -113,6 +115,8 @@ impl<F> Task<F>
             zoom,
             width,
             height,
+            x_shift,
+            y_shift,
         }
     }
 
@@ -124,6 +128,8 @@ impl<F> Task<F>
             self.zoom,
             self.width,
             self.height,
+            self.x_shift,
+            self.y_shift,
         )
     }
 }
