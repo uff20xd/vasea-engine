@@ -6,14 +6,14 @@ use std::{
 };
 type Byte = u8;
 const SCALE: usize = 1;
-const XDIM: usize = SCALE * 100;
-const YDIM: usize = SCALE * 100;
+const XDIM: usize = SCALE * 16 * 40;
+const YDIM: usize = SCALE * 16 * 40;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut thread_pool = ThreadPool::new();
     let out = "./out/output.ppm";
-    let zoom = 0.0;
-    let x_shift = 0.0;
-    let y_shift = 0.0;
+    let zoom = 1200.2;
+    let x_shift = -0.0;
+    let y_shift = 0.64;
     let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, Image::<YDIM, XDIM>::new(out)); 
     let image = shader.apply_shader(&mut thread_pool);
     // dbg!(&image);

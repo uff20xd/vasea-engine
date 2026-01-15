@@ -173,9 +173,9 @@ impl<const WIDTH: usize, const HEIGHT: usize, F> Shader<WIDTH, HEIGHT, F>
     pub fn apply_shader(self, _thread_pool: &mut ThreadPool) -> Image<WIDTH, HEIGHT> {
         for x in 0..WIDTH {
             for y in 0..HEIGHT {
-                let task = self.get_task(x, y);
-                let mut image = self.image.image.lock().unwrap();
-                image[x][y] = task.execute();
+                // let task = self.get_task(x, y);
+                // let mut image = self.image.image.lock().unwrap();
+                // image[x][y] = task.execute();
             }
         }
         self.image
