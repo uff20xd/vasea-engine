@@ -6,7 +6,7 @@ use std::{
 use std::ffi::OsStr;
 use std::path::Path;
 type Byte = u8;
-
+use std::path::PathBuf;
 // PPM Format:
 // "P6" \n
 // $width $height\n
@@ -17,17 +17,16 @@ macro_rules! generate_task {
 }
 
 #[derive(Default, Clone, Copy)]
-struct Pixel {
+pub struct Pixel {
     r: Byte,
     g: Byte,
     b: Byte,
     // pub inner: Mutex<InnerPixel>
 }
 
-
 struct Task<F> 
-    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
-    function: F,
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
+    function: &'static F,
     x: usize,
     y: usize,
     width: usize,
@@ -39,82 +38,51 @@ struct Task<F>
 
 pub struct Image<const WIDTH: usize, const HEIGHT: usize> {
     image: Mutex<[[Pixel; WIDTH]; HEIGHT]>,
-    file: fs::File,
+    path: PathBuf,
+}
+
+pub struct ThreadPool {
+    pool: Vec<()>,
 }
 
 pub struct Shader<const WIDTH: usize, const HEIGHT: usize, F> 
-    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
     // x, y, zoom, width, height
-    zoom: f64
-    pixel_fn: F,
+    pixel_fn: &'static F,
+    zoom: f64,
+    x_shift: f64,
+    y_shift: f64,
     image: Image<WIDTH, HEIGHT>,
 }
 
-impl<const WIDTH: usize, const HEIGHT: usize, F> Shader<WIDTH, HEIGHT, F> 
-    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
-
-    pub fn new() -> Self { todo!( ) }
-    pub fn get_task(x: usize, y: usize) -> Task<F> { 
-
-        let task = Task::new(
-            self.pixel_fn.clone(),
-            x,
-            y,
-        );
-
-        task
-    }
-    pub fn apply_shader(self) -> Self {
-        self
-    }
-}
-
-impl<const WIDTH: usize, const HEIGHT: usize, F> Image<WIDTH, HEIGHT> {
-
-    pub fn new<T>(file_name: T) -> Self
-    where T: AsRef<Path> {
+impl Pixel {
+    pub fn new(r: Byte, g: Byte, b: Byte) -> Self {
         Self {
-            image: Mutex::new([[Pixel::default(); WIDTH]; HEIGHT]),
-            file: fs::File::create(file_name).expect(&format!("File couldnt be created in Line: {}", line!())),
+            r,
+            g,
+            b,
         }
-    }
-    pub fn write(&self) -> Result<(), ()> {
-        let image = self.image.lock().unwrap();
-
-        let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
-        _ = self.file.write(&(b"P6\n")[..]);
-        _ = self.file.write(&size[..]);
-        _ = self.file.write(&(b"255\n")[..]);
-
-        for x in 0..WIDTH {
-            for y in 0..HEIGHT {
-                let pixel = image[x][y];
-                self.file.write(&[pixel.r, pixel.g, pixel.b]);
-            }
-        }
-        Ok(())
     }
 }
-
 impl<F> Task<F>
     where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel {
     pub fn new(
-        function: F,
+        function: &'static F,
         x: usize,
         y: usize,
-        zoom: usize,
         width: usize,
         height: usize,
-        x_shift: usize,
-        y_shift: usize,
-    ) -> Task {
+        zoom: f64,
+        x_shift: f64,
+        y_shift: f64,
+    ) -> Task<F> {
         Self {
             function,
             x,
             y,
-            zoom,
             width,
             height,
+            zoom,
             x_shift,
             y_shift,
         }
@@ -125,12 +93,91 @@ impl<F> Task<F>
         (self.function)(
             self.x,
             self.y,
-            self.zoom,
             self.width,
             self.height,
+            self.zoom,
             self.x_shift,
             self.y_shift,
         )
+    }
+}
+
+impl<const WIDTH: usize, const HEIGHT: usize> Image<WIDTH, HEIGHT> {
+    pub fn new<T>(file_name: T) -> Self
+    where T: AsRef<Path> {
+        Self {
+            image: Mutex::new([[Pixel::default(); WIDTH]; HEIGHT]),
+            path: file_name.as_ref().into(),
+        }
+    }
+    pub fn write(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let image = self.image.lock().unwrap();
+        let mut file = fs::File::open(&self.path)?;
+
+        let size: Vec<u8> = format!("{} {}\n", WIDTH, HEIGHT).bytes().collect();
+        _ = file.write(&(b"P6\n")[..]);
+        _ = file.write(&size[..]);
+        _ = file.write(&(b"255\n")[..]);
+
+        for x in 0..WIDTH {
+            for y in 0..HEIGHT {
+                let pixel = image[x][y];
+                file.write(&[pixel.r, pixel.g, pixel.b]);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ThreadPool {
+    pub fn new() -> Self {
+        Self {
+            pool: Vec::new(),
+        }
+    }
+}
+
+impl<const WIDTH: usize, const HEIGHT: usize, F> Shader<WIDTH, HEIGHT, F> 
+    where F: Fn(usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
+
+    pub fn new(
+        pixel_fn: &'static F,
+        zoom: f64,
+        x_shift: f64,
+        y_shift: f64,
+        image: Image<WIDTH, HEIGHT>,
+    ) -> Self { 
+        Self {
+            pixel_fn,
+            zoom,
+            x_shift,
+            y_shift,
+            image,
+        }
+    }
+    pub fn get_task(&self, x: usize, y: usize) -> Task<F> { 
+        let task = Task::new(
+            self.pixel_fn,
+            x,
+            y,
+            WIDTH,
+            HEIGHT,
+            self.zoom,
+            self.x_shift,
+            self.y_shift,
+        );
+
+        task
+    }
+    pub fn apply_shader(self, _thread_pool: &mut ThreadPool) -> Image<WIDTH, HEIGHT> {
+        for x in 0..WIDTH {
+            for y in 0..HEIGHT {
+                let task = self.get_task(x, y);
+                let mut image = self.image.image.lock().unwrap();
+                image[x][y] = task.execute();
+            }
+        }
+        self.image
     }
 }
 

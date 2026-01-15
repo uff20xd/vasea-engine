@@ -6,37 +6,18 @@ use std::{
 };
 type Byte = u8;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let name = "out/output.ppm";
-    let mut output = fs::File::create(name)?;
-
-    let scale = 4;
-    let width: usize = 16*40*scale;
-    let height: usize = 16*40*scale;
-    let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
-    let zoom = 1200.2 as f64;
-    let x_shift = -0.0 as f64;
-    let y_shift = 0.64 as f64;
-
-    _ = output.write(&(b"P6\n")[..]);
-    _ = output.write(&size[..]);
-    _ = output.write(&(b"255\n")[..]);
-    let zoom_mult = 1.0 / zoom ; // scale as f64;
-
-    let mut current_pixel = 0;
-
-    for i in 0..height {
-        for j in 0..width {
-
-        }
-    }
-
-
-    println!("Generating File: {}", name);
+    let thread_pool = ThreadPool::new();
+    let zoom = 0.0;
+    let x_shift = 0.0;
+    let y_shift = 0.0;
+    let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, Image::new("output.ppm")); 
+    let image = shader.apply_shader();
+    image.write();
     Ok(())
 }
 
 // x, y, zoom, width, height
-fn mandel_brot_shader(x: usize, y: usize, zoom: f64, width: usize, height: usize, x_shift: f64, y_shift: f64) -> Pixel {
+fn mandel_brot_shader(x: usize, y: usize, width: usize, height: usize, zoom: f64,  x_shift: f64, y_shift: f64) -> Pixel {
     // if (% (scale * scale * 5000)) == 0 { println!( "Pixel {} out of {}", current_pixel, width * height)}
     let zoom_mult = 1.0 / zoom;
     let x0 = zoom_mult * (((x as f64/width as f64)/ 2.0) - (x as f64/width as f64)) + x_shift;
@@ -73,5 +54,5 @@ fn mandel_brot_shader(x: usize, y: usize, zoom: f64, width: usize, height: usize
     let g = (colour * g_mult).round() as Byte; //
     let b = (colour * b_mult).round() as Byte; //
 
-
+    Pixel::new(r, g, b)
 }
