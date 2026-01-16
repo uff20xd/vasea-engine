@@ -60,9 +60,9 @@ fn mandel_brot_shader(in_pixel: Pixel, x: usize, y: usize, width: usize, height:
     //    colour += 120.0;
     //}
 
-    let r = Wrapping(in_r) + Wrapping((colour * r_mult).round() as Byte); //
-    let g = Wrapping(in_g) + Wrapping((colour * g_mult).round() as Byte); //
-    let b = Wrapping(in_b) + Wrapping((colour * b_mult).round() as Byte); //
+    let r = Wrapping(in_r) - Wrapping((colour * r_mult).round() as Byte); //
+    let g = Wrapping(in_g) - Wrapping((colour * g_mult).round() as Byte); //
+    let b = Wrapping(in_b) - Wrapping((colour * b_mult).round() as Byte); //
 
     Pixel::new(r.0, g.0, b.0)
 }
