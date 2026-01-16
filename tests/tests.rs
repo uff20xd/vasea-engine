@@ -5,7 +5,7 @@ use std::{
     fs,
 };
 type Byte = u8;
-const SCALE: usize = 1;
+const SCALE: usize = 12;
 const XDIM: usize = SCALE * 16 * 40;
 const YDIM: usize = SCALE * 16 * 40;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let zoom = 1200.2;
     let x_shift = -0.0;
     let y_shift = 0.64;
-    let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, Image::<YDIM, XDIM>::new(out)); 
+    let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, Image::<{YDIM*XDIM*3}>::new(out, XDIM, YDIM)); 
     let image = shader.apply_shader(&mut thread_pool);
     // dbg!(&image);
     image.write();
@@ -22,14 +22,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // x, y, zoom, width, height
-fn mandel_brot_shader(x: usize, y: usize, width: usize, height: usize, zoom: f64,  x_shift: f64, y_shift: f64) -> Pixel {
-    // if (% (scale * scale * 5000)) == 0 { println!( "Pixel {} out of {}", current_pixel, width * height)}
+fn mandel_brot_shader(in_pixel: Pixel, x: usize, y: usize, width: usize, height: usize, zoom: f64,  x_shift: f64, y_shift: f64) -> Pixel {
+    if (width*x + y)%(SCALE * SCALE * 5000) == 0 { println!( "Pixel {} out of {}", width*x + y, width * height)}
     let zoom_mult = 1.0 / zoom;
     let x0 = zoom_mult * (((x as f64/width as f64)/ 2.0) - (x as f64/width as f64)) + x_shift;
     let y0 = zoom_mult * (((y as f64/height as f64)/ 2.0) - (y as f64/height as f64)) + y_shift;
-    let r_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs() + 0.2 - (0.1_f64 * (x0 + y0 - 0.0)).abs();
-    let g_mult: f64 = 0.2 - (0.1_f64 * (x0 + y0 - 1.0)).abs();
-    let b_mult: f64 = 0.8; 
+    let r_mult: f64 = 0.5 - (0.1_f64 * (x0 + y0 - 1.0)).abs() + 0.2 - (0.1_f64 * (x0 + y0 - 0.0)).abs();
+    let g_mult: f64 = 0.5 - (0.1_f64 * (x0 + y0 - 1.0)).abs();
+    let b_mult: f64 = 0.9; 
     let max_mult = r_mult.max(g_mult.max(b_mult));
 
     let mut x = 0.0;
@@ -37,7 +37,7 @@ fn mandel_brot_shader(x: usize, y: usize, width: usize, height: usize, zoom: f64
 
     let mut colour: f64 = 0.0;
     let mut n = 0;
-    let max_iteration = 1000;
+    let max_iteration = 4000;
 
     while (x*x + y*y <= 2.0*2.0) && (n < max_iteration) {
         let x_temp = x*x - y*y + x0;
