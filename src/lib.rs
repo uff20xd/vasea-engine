@@ -28,6 +28,7 @@ pub struct Pixel {
 struct Task<F> 
     where F: Fn(Pixel, usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
     function: &'static F,
+    pixel: Pixel,
     x: usize,
     y: usize,
     width: usize,
@@ -38,9 +39,8 @@ struct Task<F>
 }
 
 #[derive(Debug)]
-pub struct Image<const BUFFERSIZE: usize> {
-    image: Arc<Mutex<[Byte; BUFFERSIZE]>>,
-    path: PathBuf,
+pub struct Image {
+    image: Arc<Mutex<Vec<Byte>>>,
     dimensions: (usize, usize),
 }
 
@@ -48,14 +48,14 @@ pub struct ThreadPool {
     pool: Vec<()>,
 }
 
-pub struct Shader<const BUFFERSIZE: usize, F> 
+pub struct Shader<F> 
     where F: Fn(Pixel, usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
     // x, y, zoom, width, height
     pixel_fn: &'static F,
     zoom: f64,
     x_shift: f64,
     y_shift: f64,
-    image: Arc<Image<BUFFERSIZE>>,
+    image: Arc<Image>,
 }
 
 impl Pixel {
@@ -74,6 +74,7 @@ impl<F> Task<F>
     where F: Fn(Pixel, usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
     pub fn new(
         function: &'static F,
+        pixel: Pixel,
         x: usize,
         y: usize,
         width: usize,
@@ -84,6 +85,7 @@ impl<F> Task<F>
     ) -> Task<F> {
         Self {
             function,
+            pixel,
             x,
             y,
             width,
@@ -97,6 +99,7 @@ impl<F> Task<F>
     #[inline(always)]
     fn execute(&self) -> Pixel {
         (self.function)(
+            self.pixel,
             self.x,
             self.y,
             self.width,
@@ -108,18 +111,17 @@ impl<F> Task<F>
     }
 }
 
-impl<const BUFFERSIZE: usize> Image<BUFFERSIZE> {
-    pub fn new<T>(file_name: T, width: usize, height: usize) -> Self
-    where T: AsRef<Path> {
+impl Image {
+    pub fn new(width: usize, height: usize, base: Byte) -> Self {
         Self {
-            image: Mutex::new([0; BUFFERSIZE]).into(),
-            path: file_name.as_ref().into(),
+            image: Mutex::new(vec![base; width * height * 3]).into(),
             dimensions: (width, height),
         }
     }
-    pub fn write(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn write<T>(&self, file_name: T) -> Result<(), Box<dyn std::error::Error>> 
+    where T: AsRef<Path> {
         let image = self.image.lock().unwrap();
-        let mut file = fs::File::create(&self.path)?;
+        let mut file = fs::File::create(file_name.as_ref())?;
         let (width, height) = self.dimensions;
 
         let size: Vec<u8> = format!("{} {}\n", width, height).bytes().collect();
@@ -129,6 +131,11 @@ impl<const BUFFERSIZE: usize> Image<BUFFERSIZE> {
 
         file.write(&image[..]);
         Ok(())
+    }
+    pub fn read_ppm<T>(file_name: T) -> Result<Self, Box<dyn std::error::Error>>
+    where T: AsRef<Path> {
+        let mut file = fs::read(file_name.as_ref())?;
+        todo!()
     }
 }
 
@@ -140,7 +147,7 @@ impl ThreadPool {
     }
 }
 
-impl<const BUFFERSIZE: usize, F> Shader<BUFFERSIZE, F> 
+impl<F> Shader<F> 
     where F: Fn(Pixel, usize, usize, usize, usize, f64, f64, f64) -> Pixel + 'static {
 
     pub fn new(
@@ -148,7 +155,7 @@ impl<const BUFFERSIZE: usize, F> Shader<BUFFERSIZE, F>
         zoom: f64,
         x_shift: f64,
         y_shift: f64,
-        image: Image<BUFFERSIZE>,
+        image: Image<>,
     ) -> Self { 
         Self {
             pixel_fn,
@@ -158,11 +165,11 @@ impl<const BUFFERSIZE: usize, F> Shader<BUFFERSIZE, F>
             image: image.into(),
         }
     }
-    pub fn get_task(&self, x: usize, y: usize, pixel: (Byte, Byte, Byte)) -> Task<F> { 
+    pub fn get_task(&self, x: usize, y: usize, pixel: Pixel) -> Task<F> { 
         let (width, height) = self.image.dimensions;
         let task = Task::new(
-            in_pixel,
             self.pixel_fn,
+            pixel,
             x,
             y,
             width,
@@ -174,7 +181,7 @@ impl<const BUFFERSIZE: usize, F> Shader<BUFFERSIZE, F>
 
         task
     }
-    pub fn apply_shader(self, _thread_pool: &mut ThreadPool) -> Arc<Image<BUFFERSIZE>> {
+    pub fn apply_shader(self, _thread_pool: &mut ThreadPool) -> Arc<Image> {
         {
             let mut image = self.image.image.lock().unwrap();
             let mut x = 0;
@@ -182,10 +189,10 @@ impl<const BUFFERSIZE: usize, F> Shader<BUFFERSIZE, F>
             let (width, height) = self.image.dimensions;
             for x in 0..width {
                 for y in 0..height {
-                    let test = (image[(y*width + x)*3],
+                    let pixel = Pixel::new(image[(y*width + x)*3],
                     image[(y*width + x)*3 + 1],
                     image[(y*width + x)*3 + 2]);
-                    let task = self.get_task(x, y);
+                    let task = self.get_task(x, y, pixel);
                     let (r,g,b) = task.execute().get_rgb();
                     image[(y*width + x)*3] = r;
                     image[(y*width + x)*3 + 1] = g;
