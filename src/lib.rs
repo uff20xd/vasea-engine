@@ -135,7 +135,26 @@ impl Image {
     pub fn read_ppm<T>(file_name: T) -> Result<Self, Box<dyn std::error::Error>>
     where T: AsRef<Path> {
         let mut file = fs::read(file_name.as_ref())?;
-        todo!()
+        let mut index = 3;
+        let mut raw_numbers = String::new();
+        loop {
+            if file[index] == 10 { break; }
+            raw_numbers.push(file[index] as char);
+            index += 1;
+        }
+        index += 5;
+        let image_data = Vec::from(&file[index..]);
+        let mut raw_number_split = raw_numbers.split_whitespace();
+        let raw_width = raw_number_split.next().expect("Some");
+        let raw_height = raw_number_split.next().expect("Some");
+        dbg!(&raw_width);
+        dbg!(&raw_height);
+        let width: usize = raw_width.parse()?;
+        let height: usize = raw_height.parse()?;
+        Ok(Self {
+            image: Mutex::new(image_data).into(),
+            dimensions: (width, height),
+        })
     }
 }
 

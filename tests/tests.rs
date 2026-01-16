@@ -11,17 +11,21 @@ const XDIM: usize = SCALE * 16 * 40;
 const YDIM: usize = SCALE * 16 * 40;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut thread_pool = ThreadPool::new();
-    let input = "./tests/input_photo.ppm";
-    let out = "./out/output.ppm";
-    let zoom = 1200.2;
-    let x_shift = -0.0;
-    let y_shift = 0.64;
-    let in_image = Image::new(XDIM, YDIM, 0);
-    let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, in_image);
-    let image = shader.apply_shader(&mut thread_pool);
-    // dbg!(&image);
-    image.write(out);
+    // let mut thread_pool = ThreadPool::new();
+    // let input = "./tests/input_photo.ppm";
+    // let out = "./out/output.ppm";
+    // dbg!(b" ");
+    // let zoom = 1200.2;
+    // let x_shift = -0.0;
+    // let y_shift = 0.64;
+    // let in_image = Image::new(XDIM, YDIM, 0);
+    // let shader = Shader::new(&mandel_brot_shader, zoom, x_shift, y_shift, in_image);
+    // let image = shader.apply_shader(&mut thread_pool);
+    // image.write(out);
+    
+    let test = Image::read_ppm("./out/output.ppm")?;
+    test.write("./out/test.ppm");
+    
     Ok(())
 }
 
